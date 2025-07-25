@@ -24,6 +24,18 @@ func main() {
 		fmt.Println("Error creating channel:", err)
 		return
 	}
+	topic_channel, queue, err := pubsub.DeclareAndBind(
+		connection,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug,
+		routing.GameLogSlug+".*",
+		pubsub.Durable,
+	)
+	if err != nil {
+		fmt.Println("Error binding queue:", err)
+		return
+	}
+	_, _ = topic_channel, queue
 	gamelogic.PrintServerHelp()
 Loop:
 	for {
