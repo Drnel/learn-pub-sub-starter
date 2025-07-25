@@ -38,6 +38,14 @@ func main() {
 	}
 	_, _ = channel, queue
 	game_state := gamelogic.NewGameState(username)
+	pubsub.SubscribeJSON(
+		connection,
+		routing.ExchangePerilDirect,
+		"pause."+username,
+		routing.PauseKey,
+		pubsub.Transient,
+		pubsub.HandlerPause(game_state),
+	)
 Loop:
 	for {
 		input := gamelogic.GetInput()

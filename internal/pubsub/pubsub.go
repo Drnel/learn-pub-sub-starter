@@ -3,7 +3,10 @@ package pubsub
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -57,4 +60,43 @@ func DeclareAndBind(
 		return nil, amqp.Queue{}, err
 	}
 	return channel, queue, nil
+}
+
+func SubscribeJSON[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType simpleQueueType,
+	handler func(T),
+) error {
+	channel, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	if err != nil {
+		return err
+	}
+	deliveries, err := channel.Consume(queue.Name, "", false, false, false, false, nil)
+	go func() {
+		for delivery := range deliveries {
+			var body T
+			err := json.Unmarshal(delivery.Body, &body)
+			if err != nil {
+				fmt.Println("Error unmarshalling data:", err)
+				return
+			}
+			handler(body)
+			err = delivery.Ack(false)
+			if err != nil {
+				fmt.Println("Error acknowlowdging delivery:", err)
+				return
+			}
+		}
+	}()
+	return nil
+}
+
+func HandlerPause(gs *gamelogic.GameState) func(routing.PlayingState) {
+	return func(ps routing.PlayingState) {
+		defer fmt.Print("> ")
+		gs.HandlePause(ps)
+	}
 }
