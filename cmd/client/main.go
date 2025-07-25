@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -39,10 +37,40 @@ func main() {
 		return
 	}
 	_, _ = channel, queue
+	game_state := gamelogic.NewGameState(username)
+Loop:
+	for {
+		input := gamelogic.GetInput()
+		if len(input) == 0 {
+			continue
+		}
+		switch input[0] {
+		case "spawn":
+			err = game_state.CommandSpawn(input)
+			if err != nil {
+				fmt.Println("Couldnt parse spawn command:", err)
+				continue Loop
+			}
+		case "move":
+			_, err = game_state.CommandMove(input)
+			if err == nil {
+				fmt.Println("Sucessfully Moved")
+			} else {
+				fmt.Println("Error, moving:", err)
+			}
+		case "status":
+			game_state.CommandStatus()
+		case "help":
+			gamelogic.PrintClientHelp()
+		case "spam":
+			fmt.Println("Spamming not allowed yet!")
+		case "quit":
+			fmt.Println("Exiting...")
+			break Loop
+		default:
+			fmt.Println("Could'nt understand command:", input[0])
+		}
+	}
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, os.Interrupt)
-	sig := <-sigs
-	fmt.Println("\nReceived signal", sig)
 	fmt.Println("Shutting down program")
 }

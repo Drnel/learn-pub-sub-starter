@@ -25,12 +25,14 @@ func main() {
 		return
 	}
 	gamelogic.PrintServerHelp()
+Loop:
 	for {
 		input := gamelogic.GetInput()
 		if len(input) == 0 {
 			continue
 		}
-		if input[0] == "pause" {
+		switch input[0] {
+		case "pause":
 			fmt.Println("Sending a pause message")
 			err = pubsub.PublishJSON(
 				channel, routing.ExchangePerilDirect, routing.PauseKey,
@@ -41,9 +43,7 @@ func main() {
 				return
 			}
 			fmt.Println("Sucessfully Published pause message")
-			continue
-		}
-		if input[0] == "resume" {
+		case "resume":
 			fmt.Println("Sending a resume message")
 			err = pubsub.PublishJSON(
 				channel, routing.ExchangePerilDirect, routing.PauseKey,
@@ -54,13 +54,14 @@ func main() {
 				return
 			}
 			fmt.Println("Sucessfully Published resume message")
-			continue
-		}
-		if input[0] == "quit" {
+		case "help":
+			gamelogic.PrintServerHelp()
+		case "quit":
 			fmt.Println("Exiting..")
-			break
+			break Loop
+		default:
+			fmt.Println("Could'nt understand:", input[0])
 		}
-		fmt.Println("Couldnt understand:", input[0])
 	}
 
 	fmt.Println("Shutting down program")
