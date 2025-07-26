@@ -25,7 +25,7 @@ func main() {
 		fmt.Println("Error getting username:", err)
 		return
 	}
-	channel, queue, err := pubsub.DeclareAndBind(
+	pause_channel, pause_queue, err := pubsub.DeclareAndBind(
 		connection,
 		routing.ExchangePerilDirect,
 		routing.PauseKey+"."+username,
@@ -36,15 +36,31 @@ func main() {
 		fmt.Println("Error getting channel and queue:", err)
 		return
 	}
-	_, _ = channel, queue
+	_, _ = pause_channel, pause_queue
 	game_state := gamelogic.NewGameState(username)
 	pubsub.SubscribeJSON(
 		connection,
 		routing.ExchangePerilDirect,
-		"pause."+username,
+		pause_queue.Name,
 		routing.PauseKey,
 		pubsub.Transient,
-		pubsub.HandlerPause(game_state),
+		handlerPause(game_state),
+	)
+	move_channel, move_queue, err := pubsub.DeclareAndBind(
+		connection,
+		routing.ExchangePerilTopic,
+		routing.ArmyMovesPrefix+"."+username,
+		routing.ArmyMovesPrefix+".*",
+		pubsub.Transient,
+	)
+	_, _ = move_channel, move_queue
+	pubsub.SubscribeJSON(
+		connection,
+		routing.ExchangePerilTopic,
+		move_queue.Name,
+		routing.ArmyMovesPrefix+".*",
+		pubsub.Transient,
+		handlerMove(game_state),
 	)
 Loop:
 	for {
@@ -60,12 +76,22 @@ Loop:
 				continue Loop
 			}
 		case "move":
-			_, err = game_state.CommandMove(input)
-			if err == nil {
-				fmt.Println("Sucessfully Moved")
-			} else {
+			move, err := game_state.CommandMove(input)
+			if err != nil {
 				fmt.Println("Error, moving:", err)
+				break
 			}
+			err = pubsub.PublishJSON(
+				move_channel,
+				routing.ExchangePerilTopic,
+				routing.ArmyMovesPrefix+"."+username,
+				move,
+			)
+			if err != nil {
+				fmt.Println("Error, Publishing move:", err)
+				break
+			}
+			fmt.Println("Sucessfully published move")
 		case "status":
 			game_state.CommandStatus()
 		case "help":
